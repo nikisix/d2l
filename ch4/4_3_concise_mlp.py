@@ -1,6 +1,6 @@
-from d2l import mxnet as d2l
 from mxnet import gluon, init, npx
 from mxnet.gluon import nn
+from d2l import mxnet as d2l
 npx.set_np()
 
 net = nn.Sequential()
@@ -8,7 +8,7 @@ net.add(nn.Dense(256, activation='relu'),
         nn.Dense(10))
 net.initialize(init.Normal(sigma=0.01))
 
-batch_size, lr, num_epochs = 256, 0.1, 3
+batch_size, lr, num_epochs = 256, 0.3, 5
 loss = gluon.loss.SoftmaxCrossEntropyLoss()
 trainer = gluon.Trainer(net.collect_params(), 'sgd', {'learning_rate': lr})
 
