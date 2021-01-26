@@ -1,0 +1,11 @@
+15 epochs
+    python gpu_4_3_torch_concise.py     107.80s user 8.30s system 313% cpu 37.010 total
+    python 4_3_torch_concise.py         177.68s user 5.74s system 614% cpu 29.869 total
+
+
+40 epochs
+    python gpu_4_3_torch_concise.py     279.03s user 20.44s system 328% cpu 1:31.18 total
+    (without animation)
+    python gpu_4_3_torch_concise.py     280.93s user 20.74s system 328% cpu 1:31.83 total
+
+    python 4_3_torch_concise.py         481.21s user 14.45s system 624% cpu 1:19.42 total
