@@ -13,11 +13,9 @@ true_w[0:4] = np.array([5, 1.2, -3.4, 5.6])
 features = np.random.normal(size=(n_train + n_test, 1))
 np.random.shuffle(features)
 poly_features = np.power(features, np.arange(max_degree).reshape(1, -1))
-# for i in range(max_degree):
-    # poly_features[:, i] /= math.gamma(i + 1)  # `gamma(n)` = (n-1)!
-
 for i in range(max_degree):
-    poly_features[:, i] = math.log(poly_features[:, i], i)  # `gamma(n)` = (n-1)!
+    poly_features[:, i] /= math.gamma(i + 1)  # `gamma(n)` = (n-1)!
+
 # Shape of `labels`: (`n_train` + `n_test`,)
 labels = np.dot(poly_features, true_w)
 labels += np.random.normal(scale=0.1, size=labels.shape)
@@ -70,7 +68,7 @@ def train(train_features, test_features, train_labels, test_labels,
 # Pick the first four dimensions, i.e., 1, x, x^2/2!, x^3/3! from the
 # polynomial features
 training_loss = {}
-train(poly_features[:n_train, :6], poly_features[n_train:, :6],
+train(poly_features[:n_train, :4], poly_features[n_train:, :4],
           labels[:n_train], labels[n_train:])
 
 plt.show()
@@ -94,17 +92,24 @@ plt.show()
 
 4. Can you ever expect to see zero generalization error?
 -----------------------------------------------------------------------------
-1. Can you solve the polynomial regression problem exactly? Hint: use linear algebra.
+1.1 Can you solve the polynomial regression problem exactly? Hint: use linear algebra.
     from text:
     𝐰∗ = (𝐗⊤𝐗)−1𝐗⊤𝐲.
 """
 """
 X = poly_features[:, :4]
+X = poly_features[:, :5]
 
 torch.matmul(
     torch.inverse(torch.matmul(X.t(), X)),
     torch.matmul(X.t(), labels)
 )
+
+1.2 Compare the matrix multiplication with an extra polynomial term:
+Output with 4 columns (3rd degree):
+Out[7]: tensor([ 5.0062,  1.2158, -3.3852,  5.5881])
+Output with 5 columns (4th degree):
+Out[5]: tensor([ 5.0059e+00,  1.2158e+00, -3.3843e+00,  5.5883e+00, -1.4500e-03])
 """
 
 # Out[73]: tensor([ 4.9926,  1.1961, -3.3868,  5.5776])
@@ -122,7 +127,13 @@ plt.plot(training_loss.keys(), training_loss.values())
 # ans: training loss goes down as model complexity increases
 
 # 2.3. What degree of polynomial do you need to reduce the training loss to 0?
-# ans: 3rd degree
+# ans: 3rd degree (4 columns including the intercept)
 
 # 3.1 What happens if you drop the normalization (1/i!) of the polynomial features x_i
 # OVERFIT: test error never quite drops to the level of training error.
+
+# 3.2 Can you fix this in some other way?
+
+# 4. Can you ever expect to see zero generalization error?
+# Maybe in a simple domain where everything is memorized, but not on a realistic
+# problem domain
