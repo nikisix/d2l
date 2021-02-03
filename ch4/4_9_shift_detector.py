@@ -2,7 +2,11 @@
 Training data sampled from distribution p
 Test data sampled from distribution q
 
-modeled after 3.2
+We can reuse the training data here for the dual purpose of training the class balance classifier
+(accessing test data) as well as training the final model parameters
+if covariate shift is absent, then the classifier should have poor accuracy
+
+classifier modeled after 3.2
 """
 
 from d2l import mxnet as d2l
@@ -109,7 +113,3 @@ p_q = y_hat.mean() # estimated class balance ratio
 # l = p_q*loss(net(X, w, b), y)
 # else:
 # l = (1 - p_q)*loss(net(X, w, b), y)
-""" We can reuse the training data here for the dual purpose of training the class balance classifier
-(accessing test data) as well as training the final model parameters
-if covariate shift is absent, then the classifier should have poor accuracy
-"""
