@@ -7,6 +7,151 @@ class Reshape(torch.nn.Module):
     def forward(self, x):
         return x.view(-1, 1, 28, 28)
 
+"""
+Stock LeNet Performance:
+    loss 0.467, train acc 0.824, test acc 0.797
+    48977.1 examples/sec on cuda:0
+
+2. Try to construct a more complex network based on LeNet to improve its accuracy.
+    Adjust the convolution window size.
+        first conv 5->7. Padding 2->3.
+            loss 0.462, train acc 0.826, test acc 0.799
+            49152.7 examples/sec on cuda:0
+
+        first and second conv2d 5 -> 7. padding = 3, 1
+            loss 0.426, train acc 0.843, test acc 0.799
+            44560.2 examples/sec on cuda:0
+
+        conv -> 9. padding = 4, 2
+            loss 0.430, train acc 0.841, test acc 0.819
+            31436.1 examples/sec on cuda:0
+
+    Adjust the number of output channels.
+        Doubled the number of output channels.
+        Only marginal improvement in test acc and perf goes way down.
+
+        net = torch.nn.Sequential(
+            Reshape(),
+            nn.Conv2d(1, 12, kernel_size=5, padding=2), nn.Sigmoid(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(12, 24, kernel_size=5), nn.Sigmoid(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(24 * 5 * 5, 120), nn.Sigmoid(),
+            nn.Linear(120, 84), nn.Sigmoid(),
+            nn.Linear(84, 10))
+
+        loss 0.461, train acc 0.826, test acc 0.801
+        29653.8 examples/sec on cuda:0
+
+    Adjust the activation function (e.g., ReLU).
+
+        net = torch.nn.Sequential(
+            Reshape(),
+            nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, kernel_size=5), nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(16 * 5 * 5, 120), nn.ReLU(),
+            nn.Linear(120, 84), nn.Sigmoid(),  # Leave this Sigmoid to output categorical probabilities
+            nn.Linear(84, 10))
+
+        loss 0.281, train acc 0.893, test acc 0.864
+        48312.6 examples/sec on cuda:0
+        Huge increase!!
+
+    Adjust the number of convolution layers.
+        Adding two extra conv2d (with no extra pooling) layers dumpsters accuracy
+
+        net = torch.nn.Sequential(
+            Reshape(),
+            nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.Sigmoid(),
+            nn.Conv2d(6, 6, kernel_size=5, padding=2), nn.Sigmoid(),
+            nn.Conv2d(6, 6, kernel_size=5, padding=2), nn.Sigmoid(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, kernel_size=5), nn.Sigmoid(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(16 * 5 * 5, 120), nn.Sigmoid(),
+            nn.Linear(120, 84), nn.Sigmoid(),
+            nn.Linear(84, 10))
+
+        loss 2.304, train acc 0.098, test acc 0.100
+        17302.6 examples/sec on cuda:0
+
+        increasing the num_epochs from 10 -> 20 reduced test error:
+        (more epochs would certainly improve accuracy substantially)
+            loss 0.470, train acc 0.823, test acc 0.820
+            39601.1 examples/sec on cuda:0
+
+    Adjust the number of fully connected layers.
+        no increase in test acc over baseline
+        num_epochs=20
+        net = torch.nn.Sequential(
+            Reshape(),
+            nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.Sigmoid(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, kernel_size=5), nn.Sigmoid(),
+            nn.AvgPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(16 * 5 * 5, 400), nn.Sigmoid(),
+            nn.Linear(400, 120), nn.Sigmoid(),
+            nn.Linear(120, 84), nn.Sigmoid(),
+            nn.Linear(84, 10))
+        loss 0.520, train acc 0.802, test acc 0.801
+        45579.8 examples/sec on cuda:0
+
+    Adjust the learning rates and other training details
+        (e.g., initialization and number of epochs.)
+
+    * Simplify
+        How well can we do with a simpler architecture?
+        single channel all the way through
+            loss 0.500, train acc 0.814, test acc 0.779
+            73743.1 examples/sec on cuda:0
+
+        relu and max pool
+            net = torch.nn.Sequential(
+                Reshape(),
+                nn.Conv2d(1, 1, kernel_size=5, padding=2), nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2, stride=2),
+                nn.Conv2d(1, 1, kernel_size=5), nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2, stride=2),
+                nn.Flatten(),
+                nn.Linear(1 * 5 * 5, 25), nn.Sigmoid(),
+                nn.Linear(25, 10))
+            loss 0.574, train acc 0.789, test acc 0.769
+            73634.9 examples/sec on cuda:0
+
+    * Best accuracy
+        net = torch.nn.Sequential(
+            Reshape(),
+            nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, kernel_size=5), nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(16 * 5 * 5, 120), nn.ReLU(),
+            nn.Linear(120, 84), nn.Sigmoid(),
+            nn.Linear(84, 10))
+
+        loss 0.203, train acc 0.923, test acc 0.897
+        50960.2 examples/sec on cuda:0
+"""
+
+net = torch.nn.Sequential(
+    Reshape(),
+    nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.ReLU(),
+    nn.MaxPool2d(kernel_size=2, stride=2),
+    nn.Conv2d(6, 16, kernel_size=5), nn.ReLU(),
+    nn.MaxPool2d(kernel_size=2, stride=2),
+    nn.Flatten(),
+    nn.Linear(16 * 5 * 5, 120), nn.ReLU(),
+    nn.Linear(120, 84), nn.Sigmoid(),
+    nn.Linear(84, 10))
+
+""" Original LeNet
 net = torch.nn.Sequential(
     Reshape(),
     nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.Sigmoid(),
@@ -17,7 +162,7 @@ net = torch.nn.Sequential(
     nn.Linear(16 * 5 * 5, 120), nn.Sigmoid(),
     nn.Linear(120, 84), nn.Sigmoid(),
     nn.Linear(84, 10))
-
+"""
 X = torch.rand(size=(1, 1, 28, 28), dtype=torch.float32)
 for layer in net:
     X = layer(X)
@@ -88,7 +233,7 @@ def train_ch6(net, train_iter, test_iter, num_epochs, lr,
     plt.show()
 
 
-lr, num_epochs = 0.9, 10
+lr, num_epochs = 0.9, 20
 train_ch6(net, train_iter, test_iter, num_epochs, lr)
 
 
@@ -108,18 +253,6 @@ text_labels = ['t-shirt', 'trouser', 'pullover', 'dress', 'coat', 'sandal', 'shi
     8 bag
     9 ankle boot
 """
-
-for X, y in train_iter:
-    x, y1 = X, y
-    break
-
-# deref first training label
-# y1.shape  # 256, 1
-print(text_labels[int(y1[0])])
-
-device = next(iter(net.parameters())).device
-# deref first training example
-
 """
     for layer in net:
         x0 = layer(x0)
@@ -129,8 +262,8 @@ device = next(iter(net.parameters())).device
             break
 """
 
-d2l.show_images(x0.reshape((1, 28, 28)).cpu().detach().numpy(), 3, 2)
-plt.show()
+# d2l.show_images(x0.reshape((1, 28, 28)).cpu().detach().numpy(), 3, 2)
+# plt.show()
 
 # for i in range(len(output)): print(i, output[i].shape)
 """
@@ -168,29 +301,20 @@ plt.show()
 ) """
 # plotting commands
 
-def plot_activations(x, y_label):
+def plot_activations(net, x, y_label, layer_plot_sizes):
+    """Plots forward activations in a neural network
+    Params
+        net (torch.nn): neural network
+        x (tensor): single data point of 4 dimensions: [batch, channel, height, width]
+        y_label (string): used for plotting and file_names
+        layer_plot_sizes (dict: {layer_num: [(layer_input_shape): (subplots)]
+    Output:
+        images in directory "activation-imgs/{y_label}/...". You must create this directory
+    """
     output = dict()
     output[0] = x
     for i in range(len(net)):
         output[i+1] = net[i](output[i])
-
-    # img_size, subplots
-    layer_plot_sizes = {
-            0: [(1,28,28), (1,2)],
-            1: [(1, 28, 28), (1,2)],
-            2: [(6, 28, 28), (3,2)],
-            3: [(6, 28, 28), (3,2)],
-            4: [(6, 14, 14), (3,2)],
-            5: [(16, 10, 10), (4,4)],
-            6: [(16, 10, 10), (4,4)],
-            7: [(16, 5, 5), (4,4)],
-            8: [(1, 20, 20), (1,2)],
-            9: [(1, 12, 10), (1,2)],
-            10:[(1, 12, 10), (1,2)],
-            11:[(1, 12, 7), (1,2)],
-            12:[(1, 12, 7), (1,2)],
-            13:[(1, 10, 1), (1,2)],
-        }
 
     for i in range(len(output)):
         d2l.show_images(
@@ -205,13 +329,43 @@ def plot_activations(x, y_label):
             plt.savefig(
                 f'activation-imgs/{y_label}/{y_label}-layer-{i}-{net[i].__class__.__name__}-{layer_plot_sizes[i][0]}')
 
-image_num=14
-x0 = x[image_num].reshape(1,1,28,28).to(device)
-y_label = text_labels[int(y1[image_num])]
-plot_activations(x0, y_label)
+
+
+# # Load up first batch of training examples
+# for X, y in train_iter:
+    # x, y1 = X, y
+    # break
+
+# deref first training label
+# y1.shape  # 256, 1
+# print(text_labels[int(y1[0])])
+
+# img_size, subplots
+layer_plot_sizes = {
+        0: [(1,28,28), (1,2)],
+        1: [(1, 28, 28), (1,2)],
+        2: [(6, 28, 28), (3,2)],
+        3: [(6, 28, 28), (3,2)],
+        4: [(6, 14, 14), (3,2)],
+        5: [(16, 10, 10), (4,4)],
+        6: [(16, 10, 10), (4,4)],
+        7: [(16, 5, 5), (4,4)],
+        8: [(1, 20, 20), (1,2)],
+        9: [(1, 12, 10), (1,2)],
+        10:[(1, 12, 10), (1,2)],
+        11:[(1, 12, 7), (1,2)],
+        12:[(1, 12, 7), (1,2)],
+        13:[(1, 10, 1), (1,2)],
+    }
+
+# image_num=14
+# device = next(iter(net.parameters())).device
+# x0 = x[image_num].reshape(1,1,28,28).to(device)
+# y_label = text_labels[int(y1[image_num])].strip()
+# plot_activations(net, x0, y_label, layer_plot_sizes)
 
 # some y_labels to plot:
-[(i, text_labels[int(y1[i])]) for i in range(20)]
+# [(i, text_labels[int(y1[i])]) for i in range(20)]
 
 """
 [(0, 'coat'),
@@ -234,3 +388,42 @@ plot_activations(x0, y_label)
  (17, 't-shirt'),
  (18, 'coat'),
  (19, 'ankle boot')] """
+
+
+import os
+import imageio
+def dir_to_gif(dir_name, gif_name):
+    # CREATE GIFS FROM IMAGE OUTPUTS
+    images = []
+    filenames = os.listdir(dir_name)
+    for filename in filenames:
+        images.append(imageio.imread(f'{dir_name}/{filename}'))
+    imageio.mimsave(f'{gif_name}.gif', images)
+
+# dir_to_gif('activation-imgs/sneaker/', 'sneaker-activations')
+
+"""
+Exercises (inline)
+    1. Replace the average pooling with max pooling. What happens?
+        nn.AvgPool2d(kernel_size=2, stride=2), -> nn.MaxPool2d(kernel_size=2, stride=2),
+        See: ./lenet-maxpool-both-performance.png . Test accuracy increases.
+        Stock Performance:
+            loss 0.467, train acc 0.824, test acc 0.797
+            48977.1 examples/sec on cuda:0
+        Only the second layer was changed from avg -> max:
+            loss 0.423, train acc 0.843, test acc 0.819
+            47349.2 examples/sec on cuda:0
+        Both changed from avg -> max performance:
+            loss 0.411, train acc 0.849, test acc 0.841
+            50034.5 examples/sec on cuda:0
+
+    2. Try to construct a more complex network based on LeNet to improve its accuracy.
+        Adjust the convolution window size.
+        Adjust the number of output channels.
+        Adjust the activation function (e.g., ReLU).
+        Adjust the number of convolution layers.
+        Adjust the number of fully connected layers.
+        Adjust the learning rates and other training details (e.g., initialization and number of epochs.)
+    3. Try out the improved network on the original MNIST dataset.
+    4. Display the activations of the first and second layer of LeNet for different inputs (e.g., sweaters and coats).
+"""
