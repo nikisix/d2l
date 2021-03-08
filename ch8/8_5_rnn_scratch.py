@@ -1,4 +1,3 @@
-# %matplotlib inline
 from d2l import torch as d2l
 import math
 import matplotlib.pyplot as plt
@@ -32,6 +31,12 @@ def init_rnn_state(batch_size, num_hiddens, device):
 
 
 def rnn(inputs, state, params):
+    """ Specifically, the calculation of the hidden variable of the current
+    time step is determined by the input of the current
+    time step together with the hidden variable of the previous time step:
+
+    Ht = ϕ(Xt Wxh + Ht−1 Whh + bh)      Eqn. (8.4.5)
+    """
     # Here `inputs` shape: (`num_steps`, `batch_size`, `vocab_size`)
     W_xh, W_hh, b_h, W_hq, b_q = params
     H, = state
@@ -109,7 +114,7 @@ def train_epoch_ch8(net, train_iter, loss, updater, device, use_random_iter):
                 state.detach_()
             else:
                 # `state` is a tuple of tensors for `nn.LSTM` and
-                # for our custom scratch implementation 
+                # for our custom scratch implementation
                 for s in state:
                     s.detach_()
         y = Y.T.reshape(-1)
@@ -191,7 +196,7 @@ train_ch8(net, train_iter, vocab, lr, num_epochs, device)
     * How low can you go?
     * Replace one-hot encoding with learnable embeddings. Does this lead to
         better performance?
-    * How well will it work on other books by H. G. Wells, e.g., 
+    * How well will it work on other books by H. G. Wells, e.g.,
         [*The War of the Worlds*](http://www.gutenberg.org/ebooks/36)?
 3. Modify the prediction function such as to use sampling rather than picking
     the most likely next character.
@@ -205,13 +210,18 @@ train_ch8(net, train_iter, vocab, lr, num_epochs, device)
 6. Replace the activation function used in this section with ReLU and repeat the
     experiments in this section. Do we still need gradient clipping? Why?
 """
+"""
+1. Obvious
+2.1. Skipped
+2.2. Referece file 8_5_2_embeddings.py
+"""
 
-""" * How well will it work on other books by H. G. Wells, e.g., 
+"""2.3. * How well will it work on other books by H. G. Wells, e.g.,
     [*The War of the Worlds*](http://www.gutenberg.org/ebooks/36)?
 
 perplexity 1.0, 127928.7 tokens/sec on cuda:0
 
-from load_war_of_the_worlds import * 
+from load_war_of_the_worlds import *
 train_iter, vocab = load_data_war_of_the_worlds(batch_size, num_steps)
 """
 
@@ -237,7 +247,7 @@ argmax seems to work the most consistenly however.
 """
 
 # 4. Run the code in this section without clipping the gradient. What happens?
-# Doesn't converge
+# Doesn't converge. Just comment out: grad_clipping(net, 1)
 
 # 6. Replace the activation function used in this section with ReLU and repeat the
     # experiments in this section. Do we still need gradient clipping? Why?

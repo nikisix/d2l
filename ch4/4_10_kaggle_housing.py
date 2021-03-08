@@ -161,6 +161,12 @@ from itertools import chain
 params = dict()
 calls = 0
 def bsearch(f_1, s, d):
+    """ Params:
+    f_1 - previous function call value
+    s - list of slices (one per variable to optimize)
+    d - dimension to optmize over
+    Returns: min function value over the slices
+    """
     global calls
     global params
     calls += 1

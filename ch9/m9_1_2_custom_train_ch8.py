@@ -78,7 +78,9 @@ def train_epoch_ch8(net, train_iter, loss, updater, device, use_random_iter):
 #@save
 def train_ch8_slim(net, train_iter, vocab, lr, num_epochs, device,
               use_random_iter=False):
-    """Train a model (defined in Chapter 8)."""
+    """Train a model (defined in Chapter 8).
+    Slimmed down for binary searching
+    """
     loss = nn.CrossEntropyLoss()
     # Initialize
     if isinstance(net, nn.Module):
