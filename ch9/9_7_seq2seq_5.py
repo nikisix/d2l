@@ -1,3 +1,36 @@
+""" 5. Rerun the experiment by replacing GRU with LSTM.
+
+context = state[-1].repeat(X.shape[0], 1, 1) ->
+context = state[0][-1].repeat(X.shape[0], 1, 1)
+
+Recall that an LSTM's state is a tuple of: [hidden state (H), memory cell (C)]
+state[0] dereferences H, which is what we're after.
+
+For the context variable we just need H because:
+"9.2.2.2
+The actual model is defined just like what we discussed before: providing three gates and an auxiliary
+memory cell. Note that only the hidden state is passed to the output layer. The memory cell Ct does not
+participate in the output computation."
+C only influences the next H so doesn't need to exist outside of the LSTM's scope.
+
+
+Results:
+
+LSTM:
+    loss 0.019, 28299.4 tokens/sec on cuda:0
+    go . => va !, bleu 1.000
+    i lost . => j'ai perdu ., bleu 1.000
+    he's calm . => il est riche ., bleu 0.658
+    i'm home . => je suis chez moi ., bleu 1.000
+
+GRU:
+    go . => va !, bleu 1.000
+    i lost . => j'ai perdu ., bleu 1.000
+    he's calm . => il est riche ., bleu 0.658
+    i'm home . => je suis riche ., bleu 0.512
+
+LSTM outperforms GRU here!
+"""
 
 import collections
 from d2l import torch as d2l
@@ -14,7 +47,7 @@ class Seq2SeqEncoder(d2l.Encoder):
         super(Seq2SeqEncoder, self).__init__(**kwargs)
         # Embedding layer
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.rnn = nn.GRU(embed_size, num_hiddens, num_layers,
+        self.rnn = nn.LSTM(embed_size, num_hiddens, num_layers,
                           dropout=dropout)
 
     def forward(self, X, *args):
@@ -34,10 +67,10 @@ encoder = Seq2SeqEncoder(vocab_size=10, embed_size=8, num_hiddens=16,
 encoder.eval()
 X = d2l.zeros((4, 7), dtype=torch.long)
 output, state = encoder(X)
-output.shape
 
-
-state.shape
+print('_Encoder out_')
+print('output shape', output.shape)
+print('state shape' , [s.shape for s in state])
 
 
 class Seq2SeqDecoder(d2l.Decoder):
@@ -46,7 +79,7 @@ class Seq2SeqDecoder(d2l.Decoder):
                  dropout=0, **kwargs):
         super(Seq2SeqDecoder, self).__init__(**kwargs)
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.rnn = nn.GRU(embed_size + num_hiddens, num_hiddens, num_layers,
+        self.rnn = nn.LSTM(embed_size + num_hiddens, num_hiddens, num_layers,
                           dropout=dropout)
         self.dense = nn.Linear(num_hiddens, vocab_size)
 
@@ -57,7 +90,7 @@ class Seq2SeqDecoder(d2l.Decoder):
         # The output `X` shape: (`num_steps`, `batch_size`, `embed_size`)
         X = self.embedding(X).permute(1, 0, 2)
         # Broadcast `context` so it has the same `num_steps` as `X`
-        context = state[-1].repeat(X.shape[0], 1, 1)
+        context = state[0][-1].repeat(X.shape[0], 1, 1)
         X_and_context = d2l.concat((X, context), 2)
         output, state = self.rnn(X_and_context, state)
         output = self.dense(output).permute(1, 0, 2)
@@ -71,7 +104,10 @@ decoder = Seq2SeqDecoder(vocab_size=10, embed_size=8, num_hiddens=16,
 decoder.eval()
 state = decoder.init_state(encoder(X))
 output, state = decoder(X, state)
-output.shape, state.shape
+
+print('_Decoder out_')
+print('output shape', output.shape)
+print('state shape' , [s.shape for s in state] )
 
 
 #@save
@@ -83,13 +119,13 @@ def sequence_mask(X, valid_len, value=0):
     X[~mask] = value
     return X
 
-# X = torch.tensor([[1, 2, 3], [4, 5, 6]])
+X = torch.tensor([[1, 2, 3], [4, 5, 6]])
 # sequence_mask(X, torch.tensor([1, 2]))
 # tensor([[1, 0, 0],
         # [4, 5, 0]])
 
 
-# X = d2l.ones(2, 3, 4)
+X = d2l.ones(2, 3, 4)
 # sequence_mask(X, torch.tensor([1, 2]), value=-1)
 # tensor([[[ 1.,  1.,  1.,  1.],
          # [-1., -1., -1., -1.],
@@ -232,54 +268,13 @@ for eng, fra in zip(engs, fras):
         net, eng, src_vocab, tgt_vocab, num_steps, device)
     print(f'{eng} => {translation}, bleu {bleu(translation, fra, k=2):.3f}')
 
-""" ## Default Performance
-    go . => va !, bleu 1.000
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est riche ., bleu 0.658
-    i'm home . => je suis riche ., bleu 0.512
-"""
 
 """ ## Exercises
-
 1. Can you adjust the hyperparameters to improve the translation results?
-    No :P
-
 2. Rerun the experiment without using masks in the loss calculation. What results do you observe? Why?
-
-    Just comment out this line:
-        weights = sequence_mask(weights, valid_len)
-
-    Outputs trail on, the masks trigger a stop after valid_len. Without them the outputs trail on.
-    loss 0.019, 28663.9 tokens/sec on cuda:0
-    go . => va !, bleu 1.000
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est riche riche de la qui maison maison riche, bleu 0.258
-    i'm home . => je suis chez moi moi moi moi moi certain moi, bleu 0.481
-
 3. If the encoder and the decoder differ in the number of layers or the number of hidden units, how can we initialize
 the hidden state of the decoder?
-    Broadcasting/Truncation?
-
 4. In training, replace teacher forcing with feeding the prediction at the previous time step into the decoder. How does
 this influence the performance?
-
-    Code: ./9_7_seq2seq_4.py
-
-    Actually pretty good:
-    loss 0.041, 27526.8 tokens/sec on cuda:0
-    go . => va ! ?, bleu 0.687
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est bon ., bleu 0.658
-    i'm home . => je suis chez moi ., bleu 1.000
-
 5. Rerun the experiment by replacing GRU with LSTM.
-    Code: ./9_7_seq2seq_5.py
-
-    Results:
-    loss 0.019, 28299.4 tokens/sec on cuda:0
-    go . => va !, bleu 1.000
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est riche ., bleu 0.658
-    i'm home . => je suis chez moi ., bleu 1.000
-
 6. Are there any other ways to design the output layer of the decoder? """
