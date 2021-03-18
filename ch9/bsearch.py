@@ -46,7 +46,7 @@ class BinarySearch:
         self.params[fx] = list(x)
         if self.debug: print(fx, f_1, '\t', x)
         if (f_1 < fx) and (self.min_calls < self.calls): return
-        if any([s[i].stop - s[i].start <= self.epsilon[i] for i in range(len(s))]): 
+        if any([s[i].stop - s[i].start <= self.epsilon[i] for i in range(len(s))]):
             return fx
 
         s_left, s_right = s.copy(), s.copy()

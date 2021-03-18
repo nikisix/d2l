@@ -1,0 +1,6 @@
+notes for the d2l.ai book
+
+
+
+#+DOWNLOADED: https://d2l.ai/_images/capacity-vs-error.svg @ 2021-01-22 13:57:50
+[[file:2021-01-22_13-57-49_capacity-vs-error.png]]

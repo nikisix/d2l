@@ -1,9 +1,15 @@
+""" 9.8.5. Exercises
+2. Apply beam search in the machine translation problem in Section 9.7. How does the
+beam size affect the translation results and the prediction speed?
+"""
 
 import collections
 from d2l import torch as d2l
 import math
 import torch
 from torch import nn
+import matplotlib as mpl
+mpl.use('MacOSX')
 
 
 #@save
@@ -161,7 +167,7 @@ def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device):
 
 embed_size, num_hiddens, num_layers, dropout = 32, 32, 2, 0.1
 batch_size, num_steps = 64, 10
-lr, num_epochs, device = 0.005, 300, d2l.try_gpu()
+lr, num_epochs, device = 0.005, 10, d2l.try_gpu()
 
 train_iter, src_vocab, tgt_vocab = d2l.load_data_nmt(batch_size, num_steps)
 encoder = Seq2SeqEncoder(
@@ -171,11 +177,64 @@ decoder = Seq2SeqDecoder(
 net = d2l.EncoderDecoder(encoder, decoder)
 train_seq2seq(net, train_iter, lr, num_epochs, tgt_vocab, device)
 
+# Tree off of predict function into either predict_greedy
+# or predict_beam(beamsize(int))
+
+def predict_greedy(net, dec_X, dec_state):
+    output_seq, attention_weight_seq = [], []
+    for _ in range(num_steps):
+        Y, dec_state = net.decoder(dec_X, dec_state)
+        # We use the token with the highest prediction likelihood as the input
+        # of the decoder at the next time step
+        dec_X = Y.argmax(dim=2)
+        pred = dec_X.squeeze(dim=0).type(torch.int32).item()
+        # Once the end-of-sequence token is predicted, the generation of the
+        # output sequence is complete
+        if pred == tgt_vocab['<eos>']: break
+        output_seq.append(pred)
+    return ' '.join(tgt_vocab.to_tokens(output_seq))
+
+token_seqs = dict()
+def beam(n, net, X, state, beamsize, seq, seq_prob):
+    global token_seqs, tgt_vocab
+    if len(seq) > 0:
+        if n==0 or seq[-1] == tgt_vocab['<eos>']:
+            token_seqs[seq_prob.item()] = seq
+            return seq_prob
+
+    Y, state = net.decoder(X, state)
+    Y = torch.nn.Softmax(dim=0)(Y.squeeze())
+    # sort -> tuple(probs, argsort)
+    probs, aargs = [
+            i[:beamsize].detach()
+            for i in Y.sort(descending=True)]
+    # might want to deref with .item()
+    return max([
+        beam(
+            n-1, net, X, state, beamsize,
+            seq+[tgt_vocab.to_tokens(arg)], seq_prob*prob
+        )
+        for prob, arg in zip(probs, aargs)
+    ])
+
+def predict_beam(net, dec_X, dec_state, beamsize=2):
+    global token_seqs
+    print('beam searching')
+    output_seq, attention_weight_seq = [], []
+    output_prob = beam(num_steps, net, dec_X, dec_state, beamsize, seq=[], seq_prob=1)
+    # TODO ... output_seq
+    import ipdb; ipdb.set_trace()  # TODO BREAKPOINT
+    return token_seqs[output_prob.item()]
 
 #@save
 def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
-                    device, save_attention_weights=False):
-    """Predict for sequence to sequence."""
+                    device, save_attention_weights=False,
+                    search_type='greedy'):
+    """Predict for sequence to sequence.
+    search type must be either 'beam' or 'greedy'"""
+    if search_type not in ('beam', 'greedy'):
+        raise Exception
+
     # Set `net` to eval mode for inference
     net.eval()
     src_tokens = src_vocab[src_sentence.lower().split(' ')] + [
@@ -190,22 +249,8 @@ def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
     # Add the batch axis
     dec_X = torch.unsqueeze(torch.tensor(
         [tgt_vocab['<bos>']], dtype=torch.long, device=device), dim=0)
-    output_seq, attention_weight_seq = [], []
-    for _ in range(num_steps):
-        Y, dec_state = net.decoder(dec_X, dec_state)
-        # We use the token with the highest prediction likelihood as the input
-        # of the decoder at the next time step
-        dec_X = Y.argmax(dim=2)
-        pred = dec_X.squeeze(dim=0).type(torch.int32).item()
-        # Save attention weights (to be covered later)
-        if save_attention_weights:
-            attention_weight_seq.append(net.decoder.attention_weights)
-        # Once the end-of-sequence token is predicted, the generation of the
-        # output sequence is complete
-        if pred == tgt_vocab['<eos>']:
-            break
-        output_seq.append(pred)
-    return ' '.join(tgt_vocab.to_tokens(output_seq)), attention_weight_seq
+    predict_fn = (predict_beam, predict_greedy)[search_type=='greedy']
+    return predict_fn(net, dec_X, dec_state)
 
 
 def bleu(pred_seq, label_seq, k):  #@save
@@ -228,8 +273,9 @@ def bleu(pred_seq, label_seq, k):  #@save
 engs = ['go .', "i lost .", 'he\'s calm .', 'i\'m home .']
 fras = ['va !', 'j\'ai perdu .', 'il est calme .', 'je suis chez moi .']
 for eng, fra in zip(engs, fras):
-    translation, attention_weight_seq = predict_seq2seq(
-        net, eng, src_vocab, tgt_vocab, num_steps, device)
+    translation = predict_seq2seq(
+        net, eng, src_vocab, tgt_vocab,
+        num_steps, device, search_type='beam')
     print(f'{eng} => {translation}, bleu {bleu(translation, fra, k=2):.3f}')
 
 """ ## Default Performance
@@ -240,47 +286,11 @@ for eng, fra in zip(engs, fras):
     i'm home . => je suis riche ., bleu 0.512
 """
 
-""" ## Exercises
+"""EXERCISES
+    1. Can we treat exhaustive search as a special type of beam search? Why or why not?
+        Yes, where beam size = vocab size
 
-1. Can you adjust the hyperparameters to improve the translation results?
-    No :P
-
-2. Rerun the experiment without using masks in the loss calculation. What results do you observe? Why?
-
-    Just comment out this line:
-        weights = sequence_mask(weights, valid_len)
-
-    Outputs trail on, the masks trigger a stop after valid_len. Without them the outputs trail on.
-    loss 0.019, 28663.9 tokens/sec on cuda:0
-    go . => va !, bleu 1.000
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est riche riche de la qui maison maison riche, bleu 0.258
-    i'm home . => je suis chez moi moi moi moi moi certain moi, bleu 0.481
-
-3. If the encoder and the decoder differ in the number of layers or the number of hidden units, how can we initialize
-the hidden state of the decoder?
-    Broadcasting/Truncation?
-
-4. In training, replace teacher forcing with feeding the prediction at the previous time step into the decoder. How does
-this influence the performance?
-
-    Code: ./9_7_seq2seq_4.py
-
-    Other than loss increasing during training, actually pretty good:
-    loss 0.041, 27526.8 tokens/sec on cuda:0
-    go . => va ! ?, bleu 0.687
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est bon ., bleu 0.658
-    i'm home . => je suis chez moi ., bleu 1.000
-
-5. Rerun the experiment by replacing GRU with LSTM.
-    Code: ./9_7_seq2seq_5.py
-
-    Results:
-    loss 0.019, 28299.4 tokens/sec on cuda:0
-    go . => va !, bleu 1.000
-    i lost . => j'ai perdu ., bleu 1.000
-    he's calm . => il est riche ., bleu 0.658
-    i'm home . => je suis chez moi ., bleu 1.000
-
-6. Are there any other ways to design the output layer of the decoder? """
+    3. We used language modeling for generating text following user-provided prefixes in
+    Section 8.5. Which kind of search strategy does it use? Can you improve it?
+        Greedy, yes, can convert to beam search.
+"""
