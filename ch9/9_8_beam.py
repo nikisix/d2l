@@ -1,6 +1,16 @@
 """ 9.8.5. Exercises
 2. Apply beam search in the machine translation problem in Section 9.7. How does the
 beam size affect the translation results and the prediction speed?
+
+loss 0.019, 16519.9 tokens/sec on cuda:0
+    translating: go .
+    go . => va !, bleu 1.000
+    translating: i lost .
+    i lost . => j'ai perdu ., bleu 1.000
+    translating: he's calm .
+    he's calm . => il est riche mouillé ., bleu 0.548
+    translating: i'm home .
+    i'm home . => je suis chez moi qui ., bleu 0.803
 """
 
 import collections
@@ -9,7 +19,7 @@ import math
 import torch
 from torch import nn
 import matplotlib as mpl
-mpl.use('MacOSX')
+# mpl.use('MacOSX')
 
 
 #@save
@@ -167,7 +177,7 @@ def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device):
 
 embed_size, num_hiddens, num_layers, dropout = 32, 32, 2, 0.1
 batch_size, num_steps = 64, 10
-lr, num_epochs, device = 0.005, 10, d2l.try_gpu()
+lr, num_epochs, device = 0.005, 300, d2l.try_gpu()
 
 train_iter, src_vocab, tgt_vocab = d2l.load_data_nmt(batch_size, num_steps)
 encoder = Seq2SeqEncoder(
@@ -180,9 +190,10 @@ train_seq2seq(net, train_iter, lr, num_epochs, tgt_vocab, device)
 # Tree off of predict function into either predict_greedy
 # or predict_beam(beamsize(int))
 
-def predict_greedy(net, dec_X, dec_state):
+def predict_greedy(net, dec_X, dec_state, num_steps):
     output_seq, attention_weight_seq = [], []
     for _ in range(num_steps):
+        import ipdb; ipdb.set_trace()  # TODO BREAKPOINT
         Y, dec_state = net.decoder(dec_X, dec_state)
         # We use the token with the highest prediction likelihood as the input
         # of the decoder at the next time step
@@ -194,13 +205,11 @@ def predict_greedy(net, dec_X, dec_state):
         output_seq.append(pred)
     return ' '.join(tgt_vocab.to_tokens(output_seq))
 
-token_seqs = dict()
-def beam(n, net, X, state, beamsize, seq, seq_prob):
+def beam(steps_left, net, X, state, beamsize, seq, seq_prob):
     global token_seqs, tgt_vocab
-    if len(seq) > 0:
-        if n==0 or seq[-1] == tgt_vocab['<eos>']:
-            token_seqs[seq_prob.item()] = seq
-            return seq_prob
+    if steps_left<=0 or seq[-1]=='<eos>':
+        token_seqs[seq_prob.item()] = seq
+        return seq_prob
 
     Y, state = net.decoder(X, state)
     Y = torch.nn.Softmax(dim=0)(Y.squeeze())
@@ -208,23 +217,22 @@ def beam(n, net, X, state, beamsize, seq, seq_prob):
     probs, aargs = [
             i[:beamsize].detach()
             for i in Y.sort(descending=True)]
-    # might want to deref with .item()
     return max([
         beam(
-            n-1, net, X, state, beamsize,
-            seq+[tgt_vocab.to_tokens(arg)], seq_prob*prob
+            steps_left-1, net, arg.view(1,1),
+            state, beamsize,
+            seq+[tgt_vocab.to_tokens(arg.item())], seq_prob*prob
         )
-        for prob, arg in zip(probs, aargs)
-    ])
+        for prob, arg in zip(probs, aargs) if arg!=0
+    ]) # arg!=0 so we don't predict the <unk> token 
 
-def predict_beam(net, dec_X, dec_state, beamsize=2):
+def predict_beam(net, dec_X, dec_state, num_steps, beamsize=3):
     global token_seqs
     print('beam searching')
     output_seq, attention_weight_seq = [], []
-    output_prob = beam(num_steps, net, dec_X, dec_state, beamsize, seq=[], seq_prob=1)
-    # TODO ... output_seq
-    import ipdb; ipdb.set_trace()  # TODO BREAKPOINT
-    return token_seqs[output_prob.item()]
+    output_prob = beam(num_steps, net, dec_X, dec_state, beamsize, seq=['<bos>'], seq_prob=1)
+    top_seq = token_seqs[sorted(token_seqs)[-1]]
+    return ' '.join(top_seq[1:len(top_seq)-1])  # remove '<bos>' '<eos>'
 
 #@save
 def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
@@ -250,7 +258,7 @@ def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
     dec_X = torch.unsqueeze(torch.tensor(
         [tgt_vocab['<bos>']], dtype=torch.long, device=device), dim=0)
     predict_fn = (predict_beam, predict_greedy)[search_type=='greedy']
-    return predict_fn(net, dec_X, dec_state)
+    return predict_fn(net, dec_X, dec_state, num_steps)
 
 
 def bleu(pred_seq, label_seq, k):  #@save
@@ -272,10 +280,13 @@ def bleu(pred_seq, label_seq, k):  #@save
 
 engs = ['go .', "i lost .", 'he\'s calm .', 'i\'m home .']
 fras = ['va !', 'j\'ai perdu .', 'il est calme .', 'je suis chez moi .']
+token_seqs = dict()
 for eng, fra in zip(engs, fras):
+    print(f'translating: {eng}')
     translation = predict_seq2seq(
         net, eng, src_vocab, tgt_vocab,
         num_steps, device, search_type='beam')
+    token_seqs=dict()
     print(f'{eng} => {translation}, bleu {bleu(translation, fra, k=2):.3f}')
 
 """ ## Default Performance
