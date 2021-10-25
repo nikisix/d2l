@@ -1,4 +1,5 @@
 data/
+d2l-notebooks/
 *.pyc
 *.csv
 *.png

@@ -35,7 +35,7 @@ def corr2d_multi_in_out_1x1(X, K):
 
 X = np.random.normal(0, 1, (3, 3, 3))
 K = np.random.normal(0, 1, (2, 3, 1, 1))
-    
+
 
 Y1 = corr2d_multi_in_out_1x1(X, K)
 Y2 = corr2d_multi_in_out(X, K)
@@ -75,7 +75,7 @@ assert float(np.abs(Y1 - Y2).sum()) < 1e-6
 2.1 Computational Cost (multiplications and additions) for the forward propagation?
 
 Recall (from 6.3):
-Convolution Memory Footprint 
+Convolution Memory Footprint
 ⌊(nh−kh+ph+sh)/sh⌋×⌊(nw−kw+pw+sw)/sw⌋
     h,w = height, width
     n = input

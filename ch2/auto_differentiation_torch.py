@@ -1,5 +1,4 @@
-from mxnet import autograd, np, npx
-npx.set_np()
+import torch as t
 
 """
 great primer on matrix calculus theory
@@ -11,19 +10,18 @@ https://explained.ai/matrix-calculus/
 
 """ Before we even calculate the gradient of  𝑦  with respect to  𝐱 , we will need a place to store it. It is important that we do not allocate new memory every time we take a derivative with respect to a parameter because we will often update the same parameters thousands or millions of times and could quickly run out of memory. Note that a gradient of a scalar-valued function with respect to a vector  𝐱  is itself vector-valued and has the same shape as  𝐱 .
 """
-x = np.arange(4.0)
-x.attach_grad()
+# ex1
+x = t.arange(4.0, requires_grad=True)
 x.grad
-
-with autograd.record():
-    y = x.sum()
+y = x.sum()
 x.grad
 y.backward()
-with autograd.record():
-    y = 2 * np.dot(x,x)
 
-print('x gradient', x.grad)
+# ex2
+y = 2 * t.dot(x,x)
+
 print('y backprop', y.backward())
+print('x gradient', x.grad)
 
 
 """Questions
@@ -48,7 +46,7 @@ set to True
 # Q3. CONTROL FLOW EXAMPLE
 def f(a):
     b = a * 2
-    while np.linalg.norm(b) < 1000:
+    while t.linalg.norm(b) < 1000:
         b = b * 2
     if b.sum() > 0:
         c = b
@@ -57,8 +55,7 @@ def f(a):
     return c
 
 
-[nav] In [195]: xx = np.array([list(range(3)) for i in range(1, 4)])
-
+xx = t.tensor([list(range(3)) for i in range(1, 4)], dtype=t.float16, requires_grad=True)
 
 """
 [ins] In [196]: xx
@@ -68,12 +65,9 @@ array([[0., 1., 2.],
        [0., 1., 2.]])
 """
 
-xx.attach_grad()
-
-with autograd.record():
-    y = f(xx)
-
-y.backward()
+y = f(xx)
+y.sum().backward()
+print(x.grad)
 
 """
 [ins] In [201]: xx.grad
@@ -88,6 +82,14 @@ array([[   0.,  512., 1024.],
        [   0.,  512., 1024.],
        [   0.,  512., 1024.]])
 """
+
+x = t.arange(-10, 10, .5, requires_grad=True)
+y = t.sin(x)
+y.backward()
+y.sum().backward()
+plt.plot(y.detach().numpy())
+plt.plot(x.grad)
+plt.show()
 
 
 from sympy import *

@@ -121,8 +121,8 @@ du/dx*dx/da + du/dx/dx/db + du/dy*dy/da
 """
 u, x, y, z = symbols('u, x, y, z', cls=Function)
 a, b = symbols('a,b')
+x=x(a,b)
 y=y(a,b)
-z=z(a,b)
 z=z(a,b)
 u = u(x,y,z)
 

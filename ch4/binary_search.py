@@ -115,7 +115,7 @@ def bsearch(f_1, s, d):
     print(fx,'\t', x, '\t', s)
     params[fx] = list(x)
     if fx < f_1: return
-    if any([s[i].stop - s[i].start <= epsilon for i in range(len(s))]): 
+    if any([s[i].stop - s[i].start <= epsilon for i in range(len(s))]):
         return fx
 
     s_left, s_right = s.copy(), s.copy()
@@ -126,7 +126,7 @@ def bsearch(f_1, s, d):
 
     # print(f'{s}->\t{s_left}\t{s_right}')
     return max(filter(lambda o: o!=None,
-        chain( 
+        chain(
             [fx],
             [bsearch(fx, s_left, i) for i in range(len(s)) if i!=d],
             [bsearch(fx, s_right, i) for i in range(len(s)) if i!=d],

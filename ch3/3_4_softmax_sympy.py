@@ -1,3 +1,5 @@
+# sympy examples
+
 """NOTES
 In short, we can think of the cross-entropy classification objective in two ways: (i) as maximizing the likelihood of the observed data; and (ii) as minimizing our surprisal (and thus the number of bits) required to communicate the labels.
 """

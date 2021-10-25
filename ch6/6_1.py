@@ -10,11 +10,11 @@ class LayerReduction(nn.Block) :
         #Weight initialization
         self._weight = self.params.get('weight', shape=t_input)
         self._weight.initialize(init = init.Uniform(scale=weight_scale))
-        
+
         #Reduced weights initialization
         self._reducedWeight = self.params.get('weightReduced', shape=self._dim_k)
         self._reducedWeight.initialize(init = init.Uniform(scale=0))
-        
+
         # Can also apply
         # self._reducedWeight.data()[:] = 0.
 

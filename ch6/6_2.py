@@ -2,6 +2,7 @@ from d2l import torch as d2l
 import torch
 from torch import nn
 
+
 def corr2d(X, K):  #@save
     """Compute 2D cross-correlation."""
     h, w = K.shape
